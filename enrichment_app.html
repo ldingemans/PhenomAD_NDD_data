@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>HPO Enrichment Analysis</title>
+
+	<script type="text/javascript" src="https://cdn.bokeh.org/bokeh/release/bokeh-3.3.0.js"></script>
+	<script type="text/javascript" src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.3.0.min.js"></script>
+	<script type="text/javascript" src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-3.3.0.min.js"></script>
+	<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@holoviz/panel@1.3.1/dist/panel.min.js"></script>
+
+	<link rel="stylesheet" href="https://pyscript.net/releases/2023.05.1/pyscript.css" />
+	<script defer src="https://pyscript.net/releases/2023.05.1/pyscript.js"></script>
+	<py-config>
+	   packages = [
+		  "https://cdn.holoviz.org/panel/1.3.1/dist/wheels/bokeh-3.3.0-py3-none-any.whl",
+		  "https://cdn.holoviz.org/panel/1.3.1/dist/wheels/panel-1.3.1-py3-none-any.whl",
+		  "numpy",
+		  "matplotlib",
+		  "pandas",
+		  "setuptools",
+		  "obonet",
+		  "networkx<=2.8.0",
+		  "scipy",
+		  "openpyxl",
+		  "xlsxwriter"
+	   ]
+	</py-config>
+
+	<style>
+		/* Basic reset */
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+		
+		.form-inline {
+			display: flex;
+			align-items: center;
+			flex-wrap: nowrap;
+		}
+
+		.form-inline label {
+			margin-right: 10px;
+			white-space: nowrap;
+			flex-shrink: 0;
+		}
+
+		.form-inline input[type=number] {
+			width: 4em; /* Sets a fixed width enough for 3 digits */
+			padding: 0.5rem;
+			margin-left: 10px; /* This gives some space between the label and the input box */
+			flex: none; /* This will prevent it from growing to fill the space */
+		}
+		
+		.navbar {
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			height: 80px; /* You can adjust this value to your preference */
+		}
+
+		body {
+			font-family: 'Arial', sans-serif;
+			color: #333;
+			line-height: 1.6;
+			background: #f4f4f4;
+		}
+
+		/* Header styles */
+		#header {
+			background-color: #1976d2;
+			box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+			padding: 20px 0; /* Increase padding to make the header taller */
+		}
+
+		.title {
+			color: #fff;
+			text-decoration: none;
+			font-size: 24px; /* Increase font size for larger text */
+		}
+
+
+		/* Main content styles */
+		#main {
+			padding: 20px;
+		}
+
+		label {
+			display: block;
+			margin-bottom: 5px;
+			color: #333;
+		}
+
+		/* Container styles */
+		#container {
+			max-width: 1200px;
+			margin: auto;
+			padding: 0 20px;
+		}
+
+		/* Responsive design */
+		@media (min-width: 768px) {
+			.mh-100 {
+				min-height: 100vh;
+			}
+		}
+				
+	</style>
+</head>
+<body>
+	<div class="container-fluid d-flex flex-column vh-100 overflow-hidden" id="container">
+		<nav class="navbar navbar-expand-md navbar-dark sticky-top shadow" id="header">
+			<div class="app-header">
+				<a class="title" id="title" href="#">HPO Enrichment analysis - Status: Loading application....(this can take a couple of minutes)</a>
+			</div>
+		</nav>
+		
+		<div>
+		  <h1>Welcome to the Enrichment Analysis Web Application</h1>
+		  <p>
+			This tool is designed to provide in-depth insights into the prevalence of clinical features in neurodevelopmental disorders (NDD). Analyze the enrichment of specific clinical features in NDD syndromes compared to a general NDD population.
+		  </p>
+		  <br>
+		  <h2>Instructions</h2>
+		  <ol>
+			<li>
+			  <strong>Set the Prevalence Threshold</strong>: Determine the minimum prevalence rate for clinical features that you wish to include in your analysis. Adjust the value using the input box labeled "Minimal prevalence of clinical features to include in analysis:". The default value is set to 1%, mirroring the standard used in our published research. This filter helps in focusing on the most relevant clinical features.
+			</li>
+			<li>
+			  <strong>Prepare Phenopackets</strong>: Collect your clinical data in the form of phenopackets. Phenopackets are structured digital documents that encapsulate phenotype and genotype information. Create your phenopackets by visiting
+			  <a href="https://www.genecascade.org/sams-cgi/manage_patients.cgi">GeneCascade</a> and following the instructions provided to compile the necessary clinical data. If you just want to try the analyses, you can download a few example phenopackets <a href="https://github.com/ldingemans/PhenomAD_NDD_data/raw/main/example_phenopackets.zip">here</a>.
+			</li>
+			<li>
+			  <strong>Upload Your Data</strong>: Once your phenopackets are ready, use the "Select Files" option to upload them to the application. Ensure that your files are in the correct JSON format as produced by the GeneCascade tool.
+			</li>
+			<li>
+			  <strong>Initiate the Analysis</strong>: After uploading your phenopackets, click on the "Upload & Perform Analysis" button. The application will process the data and conduct the enrichment analysis based on the criteria you've set.
+			</li>
+			<li>
+			  <strong>Review the Results</strong>:   <p>Upon completion of the analysis, two outputs will be generated:</p>
+				  <ul>
+					<li>
+					  <strong>Enrichment Results Table:</strong> This table will contain the enrichment analysis results, detailing which clinical features are over-represented in your cohort compared to the baseline NDD data. You can download this table in Excel format for further review and analysis.
+					</li>
+					<li>
+					  <strong>Enrichment Graph:</strong> A visual representation of the enrichment analysis will also be provided. This graph can be downloaded as a PDF, offering a clear and concise illustration of the data, ideal for presentations or publication.
+					</li>
+				  </ul>
+			</li>
+		  </ol>
+
+		  <p>
+			Utilize this tool to enhance your research and contribute to the advancement of NDD understanding and care.
+		  </p>
+		</div>
+		
+		<div class="row" id="content"> <!-- Removed overflow-hidden here if not needed -->
+			<div class="col float-left" id="main"> 
+				<!-- Form group with flex styling for vertical alignment and responsive behavior -->
+				<div id="fileinput">
+				<div class="form-inline" id="threshold-group">
+					<label for="threshold">Minimal prevalence of clinical features to include in analysis:</label>
+					<input type="number" id="threshold" name="threshold" min="0" max="100" value="1">
+				</div>
+				<br>
+				<div class="button-group" id="upload">
+					 <label for="fileinput">Choose Phenopackets to perform analyses on:</label>
+				</div>
+				
+			</div>
+		</div>
+		<div id="fig_container" style="height: auto%;">
+			<img id="graph_fig" style='height: 100%; width: 100%; object-fit: contain'/>
+		</div>
+		<div id="download" style="display: inline-block;"></div>
+		<div id="download_fig" style="display: inline-block;"></div>
+	</div>
+	<py-script>
+import asyncio
+import panel as pn
+import pandas as pd
+import numpy as np
+import obonet
+import networkx as nx
+from panel.io.pyodide import show
+from pyodide.http import open_url
+import pickle
+from pyodide.http import pyfetch
+import copy
+from scipy.stats import fisher_exact
+from io import BytesIO
+import matplotlib.pyplot as plt
+import os
+from js import document
+import io
+import base64
+import json
+import warnings
+warnings.filterwarnings("ignore")
+
+
+def get_graph(hpo_terms, hpo_graph):
+	"""
+	Get a graph from specific HPO terms
+
+	Parameters
+	----------
+	hpo_terms: list
+		HPO terms to create a graph for
+	hpo_id_as_label: bool
+		Whether to use IDs as the labels. If false, use HPO names
+
+	Returns
+	----------
+	graph: networkx graph
+		Graph based on input HPO terms
+	"""
+	graph = copy.deepcopy(hpo_graph)
+	for hpo in hpo_terms:
+		if hpo not in graph.nodes():
+			for graph_node in graph.nodes(data=True):
+				if 'alt_id' in graph_node[1]:
+					if hpo in graph_node[1]['alt_id']:
+						hpo = graph_node[0]
+						break
+		if hpo not in graph.nodes():
+			continue
+		parent_nodes = list(nx.descendants(graph, hpo))
+		parent_nodes.append(hpo)
+		for hpo_ in parent_nodes:
+			graph.nodes[hpo_]['present_in_patient'] += 1
+
+	nodes_to_del = []
+
+	for node in graph.nodes(data=True):
+		if (node[1]['present_in_patient'] == 0):
+			nodes_to_del.append(node[0])
+	graph.remove_nodes_from(nodes_to_del)
+
+	return graph
+
+def construct_sum_graph(list_of_hpo_terms, hpo_base_graph):
+	"""
+	Constructs a summary graph from a list of HPO terms and a base HPO graph.
+
+	Parameters
+	----------
+	list_of_hpo_terms : list or pd.Series
+		List or Series of HPO terms to be included in the summary graph.
+	hpo_base_graph : networkx graph
+		Base HPO graph from which the summary graph is derived.
+
+	Returns
+	-------
+	sum_graph : networkx graph
+		A graph object that is a summary of the base graph focused on the unique HPO terms provided.
+	"""
+	if type(list_of_hpo_terms) != pd.Series:
+		list_of_hpo_terms = pd.Series(list_of_hpo_terms)
+	unique_hpo_terms = list_of_hpo_terms.explode().unique()
+
+	sum_graph = get_graph(unique_hpo_terms, hpo_base_graph)
+
+	nx.set_node_attributes(sum_graph, 0, 'prevalence')
+
+	for node in sum_graph.nodes():
+		sum_graph.nodes[node]['prevalence'] = np.round(list_of_hpo_terms.astype(str).str.contains(node).mean()*100,2)
+	return sum_graph
+
+def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
+	"""
+	Truncates a colormap by defining a new colormap from the original one,
+	considering only a fraction of its colors.
+
+	Parameters
+	----------
+	cmap : Colormap
+		Original colormap to be truncated.
+	minval : float, optional
+		The minimum value of the fraction of the colormap to keep.
+	maxval : float, optional
+		The maximum value of the fraction of the colormap to keep.
+	n : int, optional
+		The number of discrete colors in the new colormap.
+
+	Returns
+	-------
+	new_cmap : Colormap
+		The truncated colormap.
+	"""
+	import matplotlib.colors as colors
+	new_cmap = colors.LinearSegmentedColormap.from_list(
+		'trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=minval, b=maxval),
+		cmap(np.linspace(minval, maxval, n)))
+	return new_cmap
+
+def draw_predictor_graph(df_hpos, df_data, nijmegen_cohort):
+	"""
+	Draws a predictor graph that visualizes the top 10 predictors from the data.
+
+	Parameters
+	----------
+	df_hpos : DataFrame
+		DataFrame containing HPO terms and additional information.
+	df_data : DataFrame
+		DataFrame containing the data to be visualized in the graph.
+	nijmegen_cohort : networkx graph
+		Graph object representing the Nijmegen cohort.
+	"""
+	import matplotlib as mpl
+	mpl.rcParams['pdf.fonttype'] = 42
+	mpl.rcParams['ps.fonttype'] = 42
+	from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+	fig, axs = plt.subplots(nrows=1, ncols=1,figsize=(15,5))
+
+	hpo_base_graph = copy.deepcopy(nijmegen_cohort)
+
+	nx.set_node_attributes(hpo_base_graph, 0, "present_in_patient")
+
+	df_top_10 = df_data.loc[df_data["RR PhenomAD-NDD"].nlargest(10).index, :]
+
+	sum_graph = construct_sum_graph(df_hpos['HPO labels inc parents'], hpo_base_graph)
+
+	hpo_graph_top_10 = get_graph(df_top_10["HPO term"].to_numpy(), hpo_base_graph)
+
+	name_dict = dict(zip(list(hpo_graph_top_10.nodes()),list(hpo_graph_top_10.nodes())))
+	wanted_keys = df_top_10["HPO term"].to_list() # The keys you want
+
+	M = hpo_graph_top_10.number_of_edges()
+	edge_colors = range(2, M + 2)
+	edge_alphas = [(5 + i) / (M + 4) for i in range(M)]
+	edge_alphas = [0.5] * M
+
+	node_colors = []
+	node_sizes = dict()
+	for i in range(len(hpo_graph_top_10)):
+		name_node = list(hpo_graph_top_10.nodes())[i]
+		node_sizes[name_node] = sum_graph.nodes()[name_node]['prevalence']
+		node_colors.append(sum_graph.nodes()[name_node]['prevalence']/ nijmegen_cohort.nodes[name_node]['prevalence_both'])
+
+	name_dict = dict((k, name_dict[k].replace('Intellectual disability', 'ID').replace('Abnormality of', 'Abn.').replace('abnormality of', 'abn.').replace('abnormality', 'abn.').replace('Abnormal', 'Abn.').replace('abnormal', 'abn.')) for k in wanted_keys if k in name_dict)
+
+	pos = nx.spring_layout(hpo_graph_top_10)
+	nodes = nx.draw_networkx_nodes(hpo_graph_top_10 , pos, ax=axs, nodelist=node_sizes.keys(), node_size=[v * 25 for v in node_sizes.values()], node_color=node_colors, cmap=truncate_colormap(plt.cm.Blues, 0.4, 0.9))
+	labels = nx.draw_networkx_labels(hpo_graph_top_10 , pos, ax=axs, font_size=12, labels = name_dict)
+	edges = nx.draw_networkx_edges(
+		hpo_graph_top_10 ,
+		pos,
+		node_size=[v * 25 for v in node_sizes.values()],
+		arrowstyle="->",
+		arrowsize=10,
+		width=2,
+		ax=axs
+	)
+	# set alpha value for each edge
+	for y in range(M):
+		edges[y].set_alpha(edge_alphas[y])
+	divider = make_axes_locatable(axs)
+	cax = divider.append_axes('right', size='5%', pad=0.05)
+	fig.colorbar(nodes,cax=cax,fraction=0.046, pad=0.04)
+	axs.axis('off')
+	axs.set_title('Top 10 predictors')
+	fig.savefig("predictor_fig.pdf", dpi=300, bbox_inches='tight')
+	buf = BytesIO()
+	fig.savefig(buf, format='png', dpi=300, bbox_inches='tight')
+	buf.seek(0)
+	img_str = 'data:image/png;base64,' + base64.b64encode(buf.read()).decode('UTF-8')
+	document.getElementById("graph_fig").setAttribute("src",img_str)
+	return
+
+def calculate_p_value_predictors(df_syndrome, G, THRESHOLD):
+	"""
+	Calculates p-values for predictors in the dataset using Fisher's exact test.
+
+	Parameters
+	----------
+	df_syndrome : DataFrame
+		DataFrame containing syndrome data to be analyzed.
+	G : networkx graph
+		Graph object that includes HPO data.
+	THRESHOLD : float
+		Prevalence threshold to filter HPO terms for the analysis.
+
+	Returns
+	-------
+	df_hpo_G : DataFrame
+		DataFrame containing HPO terms and their calculated p-values and other statistical measures.
+	"""
+	nodes_non_phenotypes = ['HP:0040006', 'HP:0000005','HP:0012823','HP:0040279', 'HP:0031797']
+	nodes_to_remove = []
+	for node in G.nodes(data=True):
+		if node[1]['ID'] in nodes_non_phenotypes:
+			children = nx.ancestors(G, node[0])
+			nodes_to_remove.append(node[0])
+			nodes_to_remove.extend(list(children))
+	G.remove_nodes_from(nodes_to_remove)
+
+	df_hpo_G = pd.json_normalize(pd.DataFrame(G.nodes(data=True)).iloc[:,1]).reset_index(drop=True)
+
+	df_hpo_G['HPO_name'] = pd.DataFrame(G.nodes(data=True)).iloc[:,0]
+
+
+	df_hpo_G = df_hpo_G[df_hpo_G.prevalence_both > THRESHOLD].reset_index(drop=True)
+	df_hpo_G['prevalence_syndrome'], df_hpo_G['fisher_odds'], df_hpo_G['fisher_p_value'], df_hpo_G['prevalence_syndrome_relative'] = '', '', '', ''
+
+	for i in range(len(df_hpo_G)):
+		curr_ID = df_hpo_G.loc[i, 'ID']
+		curr_prev = df_syndrome['HPO labels inc parents'].astype(str).str.contains(df_hpo_G.loc[i, 'HPO_name']).sum()
+		df_hpo_G.loc[i,'prevalence_syndrome'] = curr_prev
+		df_hpo_G.loc[i,'prevalence_syndrome_relative'] = curr_prev/len(df_syndrome)
+
+		neg_curr_prev = len(df_syndrome) - curr_prev
+		neg_G_prev = df_hpo_G.loc[i, 'total_both'] - df_hpo_G.loc[i, 'pos_both']
+		df_hpo_G.loc[i, 'fisher_odds'], df_hpo_G.loc[i,'fisher_p_value'] = fisher_exact([[curr_prev,neg_curr_prev],[df_hpo_G.loc[i, 'pos_both'], neg_G_prev]], alternative='two-sided')
+
+	df_hpo_G = df_hpo_G[df_hpo_G.loc[:,'prevalence_syndrome_relative'] > (THRESHOLD /100)]
+
+	df_hpo_G['bonferroni_corrected_significant'] = df_hpo_G.loc[:,'fisher_p_value'] < (0.05/len(df_hpo_G))
+	return df_hpo_G
+
+def get_file():
+	"""
+	Creates an Excel file stream with the results of the enrichment analysis.
+
+	Returns
+	-------
+	output : BytesIO
+		In-memory bytes buffer containing the Excel file data.
+	"""
+	output = BytesIO()
+	writer = pd.ExcelWriter(output, engine='xlsxwriter')
+	df_p_values_phenom.to_excel(writer, sheet_name="results")
+	writer.save()
+	output.seek(0)
+	return output
+
+def get_figure():
+	"""
+	Retrieves the figure file from the local storage.
+
+	Returns
+	-------
+	buf : BytesIO
+		In-memory bytes buffer containing the figure file data.
+	"""
+	with open("predictor_fig.pdf", "rb") as fh:
+		buf = BytesIO(fh.read())
+	buf.seek(0)
+	return buf
+
+def update_title(new_status):
+	"""
+	Updates the web application's title to reflect the current status.
+
+	Parameters
+	----------
+	new_status : str
+		The new status message to be displayed in the title.
+	"""
+	pyscript.write('title', "HPO Enrichment analysis - Status: " + new_status)
+	return
+
+async def process_file(event):
+	"""
+	Processes the uploaded file(s) and triggers the enrichment analysis.
+
+	Parameters
+	----------
+	event : Event
+		The event object representing the file input change event.
+	"""
+	global df_p_values_phenom
+	if type(fileInput.value) == list:
+		df_hpos = pd.DataFrame()
+		for file in fileInput.value:
+			data = json.load(io.BytesIO(file))
+			df_hpos = pd.concat([df_hpos, pd.json_normalize(data)], axis=0)
+		df_hpos['HPO labels'], df_hpos['HPO labels inc parents'] = '', ''
+		df_hpos = df_hpos.reset_index(drop=True)
+		for i in range(len(df_hpos)):
+			hpo_names = []
+			for hpo in df_hpos.loc[i,'phenotypicFeatures']:
+				hpo_names.append(hpo['type']['label'])
+			df_hpos.at[i,'HPO labels'] = hpo_names
+			df_hpos.at[i,'HPO labels inc parents'] = list(get_graph(hpo_names, hpo_base_graph).nodes())
+		update_title("File uploaded, starting analysis...")
+		THRESHOLD = float(document.getElementById('threshold').value)
+
+		df_p_values_phenom = calculate_p_value_predictors(df_hpos, hpo_data_graph, THRESHOLD)
+		df_p_values_phenom = df_p_values_phenom[df_p_values_phenom.bonferroni_corrected_significant == True]
+
+		df_p_values_phenom = df_p_values_phenom.loc[:,["HPO_name", "prevalence_syndrome_relative", "prevalence_both", "fisher_p_value"]]
+		df_p_values_phenom.columns = ["HPO term", "Prevalence syndrome", "Prevalence PhenomAD-NDD", "Fisher p value"]
+		df_p_values_phenom.loc[:,"Prevalence syndrome"] = np.round((df_p_values_phenom.loc[:,"Prevalence syndrome"]*100).astype(float),2)
+		df_p_values_phenom["RR PhenomAD-NDD"] = np.round((df_p_values_phenom.loc[:,"Prevalence syndrome"]/df_p_values_phenom.loc[:,"Prevalence PhenomAD-NDD"]).astype(float),2)
+
+		document.getElementById('download').style.display = 'inline-block'
+		document.getElementById('download_fig').style.display = 'inline-block'
+		update_title("Analysis finished!")
+
+		draw_predictor_graph(df_hpos, df_p_values_phenom, hpo_data_graph)
+		
+async def main():
+	"""
+	The main coroutine that sets up the web application, initializing widgets and loading data.
+	"""
+	global fileInput
+	global upload
+	global hpo_base_graph
+	global hpo_data_graph
+	
+	fileInput = pn.widgets.FileInput(accept='.json', multiple=True, margin=25)
+	uploadButton = pn.widgets.Button(name='Upload & perform analysis', button_type='primary', margin=25, width=150, height= 75)
+
+	update_title("Application loaded")
+
+	response_base = await pyfetch("https://raw.githubusercontent.com/ldingemans/PhenomAD_NDD_data/main/hpo_base_graph.pickle")
+	if response_base.status == 200:
+		with open("hpo_base_graph.pickle", "wb") as f:
+			f.write(await response_base.bytes())
+
+	response = await pyfetch("https://raw.githubusercontent.com/ldingemans/PhenomAD_NDD_data/main/hpo_graph_with_data.pickle")
+	if response.status == 200:
+		with open("hpo_graph_with_data.pickle", "wb") as f:
+			f.write(await response.bytes())
+
+	with open("hpo_base_graph.pickle", 'rb') as f:
+		hpo_base_graph = pickle.load(f)
+
+	hpo_data_graph = nx.read_gpickle("hpo_graph_with_data.pickle")
+	uploadButton.on_click(process_file)
+
+	file_download_xlsx = pn.widgets.FileDownload(filename="results_hpo_enrichtment.xlsx", callback=get_file, button_type="primary")
+	file_download_fig = pn.widgets.FileDownload(filename="predictor_fig.pdf", callback=get_figure, button_type="primary")
+
+	document.getElementById('download').style.display = 'none'
+	document.getElementById('download_fig').style.display = 'none'
+	
+
+	await show(fileInput, 'fileinput')
+	await show(uploadButton, 'fileinput')
+	await show(file_download_xlsx, 'download')
+	await show(file_download_fig, 'download_fig')
+
+	document.getElementsByClassName('button-group')[0].style.display = 'inline-block'
+	document.getElementsByClassName('bk-FileInput')[0].style.display = 'inline-block'
+# If the environment already has an event loop, use asyncio.create_task or asyncio.ensure_future
+asyncio.ensure_future(main())
+
+	</py-script>
+</body>
+
+</html>
